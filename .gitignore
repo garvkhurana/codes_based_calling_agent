@@ -1,0 +1,12 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+venv
+calling-agent-293ba-firebase-adminsdk-fbsvc-bff7ff9562.json
+callingagent-468309-db3b5c8cd80d.json
