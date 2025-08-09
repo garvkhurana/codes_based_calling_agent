@@ -1,85 +1,117 @@
 print("Before imports")
 import threading
 import os
+import pyttsx3
 print("After imports")
 
-OUTPUT_FILE = "output.wav"
-playback_thread = None
-playback_lock = threading.Lock()
-is_playing = threading.Event()
-_tts_model = None
+tts_engine = None
+tts_lock = threading.Lock()
+is_speaking = threading.Event()
+stop_speaking = threading.Event()
 
-def get_tts_model():
-    global _tts_model
-    if _tts_model is None:
-        print("Loading TTS model (this may take a moment)...")
-        from TTS.api import TTS
-
+def initialize_tts():
+    global tts_engine
+    if tts_engine is None:
         try:
-            _tts_model = TTS(model_name="tts_models/en/ljspeech/tacotron2-DDC")
-        except:
-            # Fallback to VCTK model
-            try:
-                _tts_model = TTS(model_name="tts_models/en/vctk/vits")
-            except Exception as e:
-                print(f"TTS model loading failed: {e}")
-                raise
-    return _tts_model
-
-def generate_tts(text: str):
-    """Generate speech from text and save to file."""
-    try:
-        tts_model = get_tts_model()
-        tts_model.tts_to_file(text=text, file_path=OUTPUT_FILE)
-    except Exception as e:
-        print(f"❌ TTS generation error: {e}")
-        raise
-
-def _play_audio():
-    """Play audio file in a non-blocking way."""
-    try:
-        import sounddevice as sd
-        import soundfile as sf
-        if not os.path.exists(OUTPUT_FILE):
-            print("❌ No audio file found.")
-            return
+            print("Initializing pyttsx3 TTS engine...")
+            tts_engine = pyttsx3.init()
             
-        data, samplerate = sf.read(OUTPUT_FILE, dtype='float32')
-        is_playing.set()
-        sd.play(data, samplerate)
-        sd.wait()  
-        is_playing.clear()
-        
+            voices = tts_engine.getProperty('voices')
+            if voices:
+                tts_engine.setProperty('voice', voices[0].id)
+            
+            tts_engine.setProperty('rate', 200)  
+            tts_engine.setProperty('volume', 0.9)
+            
+            print(" TTS engine initialized successfully!")
+            
+        except Exception as e:
+            print(f" TTS initialization error: {e}")
+            tts_engine = None
+    
+    return tts_engine
+
+def speak_text_thread(text: str):
+    global tts_engine
+    try:
+        with tts_lock:
+            engine = initialize_tts()
+            if engine is None:
+                print(" TTS engine not available")
+                return
+            
+            is_speaking.set()
+            stop_speaking.clear()
+            
+            sentences = text.split('. ')
+            
+            for sentence in sentences:
+                if stop_speaking.is_set():
+                    print("Speech stopped due to interruption")
+                    break
+                    
+                if sentence.strip():
+                    sentence = sentence.strip()
+                    if not sentence.endswith('.') and sentence != sentences[-1]:
+                        sentence += '.'
+                    
+                    try:
+                        engine.say(sentence)
+                        engine.runAndWait()
+                    except Exception as e:
+                        print(f"Speech error: {e}")
+                        break
+            
     except Exception as e:
-        print(f"❌ Playback error: {e}")
-        is_playing.clear()
-
-def play_audio():
-    import sounddevice as sd
-    global playback_thread
-    stop_audio()
-    
-    with playback_lock:
-        playback_thread = threading.Thread(target=_play_audio, daemon=True)
-        playback_thread.start()
-
-def stop_audio():
-    import sounddevice as sd
-    is_playing.clear()
-    sd.stop()
-    
-    global playback_thread
-    if playback_thread and playback_thread.is_alive():
-        playback_thread.join(timeout=0.1)
+        print(f"Speech thread error: {e}")
+    finally:
+        is_speaking.clear()
 
 def speak_text(text: str):
     try:
-        print(f" Speaking: {text}")
+        print(f"Speaking: {text}")
+        
         stop_audio()
-        generate_tts(text)
-        play_audio()
+        
+        speech_thread = threading.Thread(target=speak_text_thread, args=(text,), daemon=True)
+        speech_thread.start()
+        
+        threading.Timer(0.1, lambda: None).start()
+        
     except Exception as e:
-        print(f"TTS error: {e}")
+        print(f" TTS error: {e}")
 
-print("TTS module initialized. Ready to speak!", flush=True)        
+def stop_audio():
+    global tts_engine
+    try:
+        stop_speaking.set()
+        
+        with tts_lock:
+            if tts_engine is not None:
+                try:
+                    tts_engine.stop()
+                except:
+                    pass  
+        
+        is_speaking.clear()
+        
+    except Exception as e:
+        print(f"Stop audio error: {e}")
 
+def is_audio_playing() -> bool:
+    return is_speaking.is_set() and not stop_speaking.is_set()
+
+def get_tts_status():
+    return {
+        "is_speaking": is_speaking.is_set(),
+        "stop_requested": stop_speaking.is_set(),
+        "engine_available": tts_engine is not None
+    }
+
+
+try:
+    initialize_tts()
+except:
+    pass 
+
+print(" pyttsx3 TTS module initialized. Ready to speak!", flush=True)

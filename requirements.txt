@@ -9,5 +9,5 @@ google-auth
 firebase_admin
 soundfile
 scipy
-torch
-TTS
+pyttsx3
+
