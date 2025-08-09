@@ -10,7 +10,7 @@ def main():
         print("After import", flush=True)
         print("Starting voice conversation...")
             
-        run_two_way_conversation(api_key='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')
+        run_two_way_conversation(api_key='')
         
     except ImportError as e:
         print(f"Import Error: {e}", flush=True)
