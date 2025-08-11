@@ -9,5 +9,6 @@ google-auth
 firebase_admin
 soundfile
 scipy
-pyttsx3
+pyttsx3 
+schedule
 
