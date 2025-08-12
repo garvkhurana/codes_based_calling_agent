@@ -14,7 +14,7 @@ def record_and_transcribe(duration=5, fs=16000) -> str:
         global whisper_model
         if whisper_model is None:
             whisper_model = whisper.load_model("tiny")
-        print(f"🎤 Recording for {duration} seconds...")
+        print(f" Recording for {duration} seconds...")
         audio = sd.rec(int(duration * fs), samplerate=fs, channels=1, dtype='int16')
         sd.wait()
 
@@ -32,6 +32,6 @@ def record_and_transcribe(duration=5, fs=16000) -> str:
         return text
 
     except Exception as e:
-        print(f"❌ Error in STT: {e}")
+        print(f"Error in STT: {e}")
         
 
